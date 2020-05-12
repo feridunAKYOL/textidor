@@ -11,106 +11,118 @@ const config = require('./config');
 // - setup -
 const FILES_DIR = __dirname + '/text-files';
 // create the express app
-_;
+const app = express();
 
 // - use middleware -
+
 // allow Cross Origin Resource Sharing
 app.use(cors());
 // parse the body
-_;
+app.use(bodyParser.json());
+app.use(bodyParser.raw({ type: 'text/plain' }));
 
 // https://github.com/expressjs/morgan#write-logs-to-a-file
-const accessLogStream = fs.createWriteStream(
-  path.join(__dirname, 'access.log'),
-  { flags: 'a' }
-);
+const accessLogStream = fs.createWriteStream(path.join(__dirname, 'access.log'), { flags: 'a' });
 app.use(morgan('combined', { stream: accessLogStream }));
 // and log to the console
 app.use(morgan('dev'));
 
 // statically serve the frontend
-_;
+app.use('/', express.static(path.join(__dirname, 'public')));
 
 // - declare routes -
+// helpful hint:
+//  open /public/actions.js next to this file
+//  can you figure out which action calls which route?
+//  which http method does each action use?
+//  what route does each one call?
 
 // read all file names
-app._('_', (req, res, next) => {
-  fs._(FILES_DIR, (err, list) => {
-    if (_) {
-      res.status(404).end();
-      _;
-    }
-    if (err) {
-      // https://expressjs.com/en/guide/error-handling.html
-      next(err);
-      return;
-    }
+//  called in init.js
+//  redirected to by other routes
+app.get('/files', (req, res, next) => {
+	fs.readdir(FILES_DIR, (err, list) => {
+		if (err && err.code === 'ENOENT') {
+			res.status(404).end();
+			return;
+		}
+		if (err) {
+			// https://expressjs.com/en/guide/error-handling.html
+			next(err);
+			return;
+		}
 
-    res.json(list);
-  });
+		res.json(list);
+	});
 });
 
 // read a file
-app._('_', (req, res, next) => {
-  const fileName = req.params.name;
-  fs._(`${FILES_DIR}/${fileName}`, _, (err, fileText) => {
-    if (_) {
-      _;
-      return;
-    }
-    if (_) {
-      _;
-      _;
-    }
+//  called by action: fetchAndLoadFile
+app.get('/files/:name', (req, res, next) => {
+	const fileName = req.params.name;
+	fs.readFile(`${FILES_DIR}/${fileName}`, 'utf-8', (err, fileText) => {
+		if (!fileName) {
+			res.status(404).end();
+			return;
+		}
+		if (err) {
+			res.status(413).send(err);
+			return;
+		}
 
-    const responseData = {
-      name: fileName,
-      text: fileText,
-    };
-    res.json(responseData);
-  });
+		const responseData = {
+			name: fileName,
+			text: fileText
+		};
+		res.json(responseData);
+	});
 });
 
 // write a file
-app._('_', (req, res, next) => {
-  const fileName = _;
-  const fileText = _;
-  fs._(`${FILES_DIR}/${fileName}`, _, err => {
-    if (_) {
-      _;
-      _;
-    }
+//  called by action: saveFile
+app.post('/files/:name', (req, res, next) => {
+	const fileName = req.params.name; // read from params
+	const fileText = req.body.text; // read from body
+	fs.writeFile(`${FILES_DIR}/${fileName}`, fileText, (err) => {
+		if (err) {
+			console.log(err);
+			return;
+		}
 
-    // https://stackoverflow.com/questions/33214717/why-post-redirects-to-get-and-put-redirects-to-put
-    res.redirect(303, '/files');
-  });
+		// https://stackoverflow.com/questions/33214717/why-post-redirects-to-get-and-put-redirects-to-put
+		res.redirect(303, '/files');
+	});
 });
 
 // delete a file
-app._('_', (req, res, next) => {
-  const fileName = _;
-  fs._(`${FILES_DIR}/${fileName}`, err => {
-    if (err && err.code === 'ENOENT') {
-      _;
-      _;
-    }
-    if (_) {
-      _;
-      _;
-    }
+//  called by action: deleteFile
+app.delete('/files/:name', (req, res, next) => {
+	const fileName = req.params.name; // read from params
+	fs.unlink(`${FILES_DIR}/${fileName}`, (err) => {
+		if (!fileName) {
+			res.send(404).end();
+			return;
+		}
+		if (err) {
+			console.log(err);
+			return;
+		}
 
-    res.redirect(303, '/files');
-  });
+		res.redirect(303, '/files');
+	});
 });
 
 // - handle errors in the routes and middleware -
+//  this works, nothing to change!
 
 // https://expressjs.com/en/guide/error-handling.html
 app.use(function(err, req, res, next) {
-  console.error(err.stack);
-  res.status(500).end();
+	console.error(err.stack);
+	res.status(500).end();
 });
 
 // - open server -
 // try to exactly match the message logged by demo.min.js
-_;
+app.listen(config.PORT, () => {
+	console.log(`My simpleEditor listening at http://localhost:${config.PORT} (${config.MODE} mode)`);
+});
